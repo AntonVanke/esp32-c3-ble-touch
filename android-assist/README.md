@@ -2,9 +2,22 @@
 
 用于在小米 14 / Android 14+ 验证默认数字助理能否获得前台应用的界面结构。独立于 C3 固件；测试读取结构时不需要连接开发板。
 
-**[下载 v0.1.1 APK](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.1.1/assist-structure-lab-0.1.1.apk)** · [发布页](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/tag/assist-v0.1.1)
+**[下载 v0.2.0 APK](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.2.0/assist-structure-lab-0.2.0.apk)** · [发布页](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/tag/assist-v0.2.0) · [桌面监看程序](../desktop-monitor/README.md)
 
-v0.1.1 修正助理元数据根标签为 Android 要求的 `voice-interaction-service`；v0.1.0 的错误标签会导致系统拒绝启用助理服务。发布版可直接覆盖安装 v0.1.0，再重新选择默认助理。
+v0.2.0 新增后台连续采集、UDP 局域网广播和桌面实时监看。发布 APK 使用与旧版本相同的签名，可覆盖安装。
+
+## 连续采集与局域网监看
+
+1. 手机与 Windows 电脑连接同一局域网，打开电脑监看程序，允许其通过专用网络防火墙。
+2. 手机 App 设为默认助理，确认“结构读取服务：已启用”。
+3. 选择每帧完成后的等待间隔（1 / 2 / 5 秒），点击 **开始连续采集并广播**；App 退到后台，3 秒后开始。
+4. 打开目标 App，桌面自动显示设备和最新结构。返回手机测试 App 点击 **停止连续采集与广播** 即停止。
+
+连续模式不显示本 App 的助理面板，但 Android/HyperOS 仍可能显示系统识屏提示。每次请求完成后关闭本次助理会话，再等待设定间隔请求下一帧；这不是视频帧率承诺。超过 8 秒只回传已有结果/超时状态；如果整个处理超过 12 秒则暂停，避免请求积压。
+
+锁屏/熄屏时只广播状态，不读取页面；解锁后继续。切换默认助理或进程结束会停止采集，不会自动恢复。连续结果只保留在内存，避免循环写入手机存储；可在桌面导出当前帧。
+
+UDP 端口 **38583**，自动选择可用 IPv4 局域网接口的广播地址。广播未加密，同网段设备可接收页面文字；点击开始后才发送，停止后不再采集。路由器访客网络或 AP 隔离可能阻断广播。桌面接收端会校验和重组分片，并丢弃不完整、重复或过期帧。
 
 ## 手机上测试
 
@@ -37,9 +50,9 @@ JSON 包含机型、系统构建版本、时间、助理上下文标志、来源
 
 ## 数据与权限
 
-没有无障碍服务、ADB、Root、录屏、网络或麦克风权限；不采集截图、不执行点击。Manifest 中的 `BIND_VOICE_INTERACTION` / `BIND_SPEECH_RECOGNITION` 用来限制系统绑定服务，不是向用户申请这些权限。识别服务只是满足助理声明要求，不做语音识别。
+没有无障碍服务、ADB、Root、录屏或麦克风权限；不采集截图、不执行点击。新增 `INTERNET` 权限用于局域网 UDP 广播。Manifest 中的 `BIND_VOICE_INTERACTION` / `BIND_SPEECH_RECOGNITION` 用来限制系统绑定服务，不是向用户申请这些权限。识别服务只是满足助理声明要求，不做语音识别。
 
-结果只保存在本机应用私有目录，关闭备份；仅在你选择导出时写入指定文件。导出内容可能包含页面文字。测试结束后可在系统设置中恢复原默认助理。
+单次结果保存在本机应用私有目录，关闭备份；连续模式将结构广播到局域网，软件不上传到互联网。导出文件可能包含页面文字。测试结束后可停止采集，并在系统设置中恢复原默认助理。
 
 ## 构建
 
@@ -50,7 +63,7 @@ cd android-assist
 gradle --no-daemon :app:assembleDebug
 ```
 
-产物：`app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 的 **Build AssistStructure test APK** 工作流也生成可安装的 debug APK artifact。不同构建机器的 debug 签名可能不同；覆盖安装发生签名冲突时需先卸载旧测试版，卸载会删除其本地结果。
+产物：`app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 的 **Build AssistStructure apps** 工作流生成 APK 和 Windows EXE artifact。不同构建机器的 debug 签名可能不同；覆盖安装发生签名冲突时需先卸载旧测试版，卸载会删除其本地结果。
 
 已提供编译后的测试版；小米 14 的默认助理接入、目标 App 内容完整性需由实机测试确定。
 

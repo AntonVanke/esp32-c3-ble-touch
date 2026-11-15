@@ -8,3 +8,6 @@ android-assist/**/build/
 android-assist/local.properties
 *.jks
 *.keystore
+desktop-monitor/build/
+desktop-monitor/dist/
+desktop-monitor/*.spec

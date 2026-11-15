@@ -11,6 +11,8 @@ import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.service.voice.VoiceInteractionService;
 import android.view.WindowInsets;
@@ -19,6 +21,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import java.io.OutputStream;
 import java.io.File;
 import java.nio.file.Files;
@@ -32,6 +36,17 @@ public final class MainActivity extends Activity {
     private TextView serviceStatus, summary, preview;
     private String latest = "";
     private Button capture;
+    private Button startStream, stopStream;
+    private TextView streamStatus;
+    private final Handler ui = new Handler(Looper.getMainLooper());
+    private final Runnable updateStream = new Runnable() {
+        @Override public void run() {
+            streamStatus.setText(AssistService.streamStatus());
+            startStream.setEnabled(!AssistService.isRunning());
+            stopStream.setEnabled(AssistService.isRunning());
+            ui.postDelayed(this, 1000);
+        }
+    };
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -49,7 +64,7 @@ public final class MainActivity extends Activity {
         });
         setContentView(scroll);
         text(body, "Assist 结构测试", 26);
-        text(body, "v0.1.1 · Android 14+\n只读取系统助理提供的结构；不使用无障碍、ADB、Root、录屏或麦克风。", 15);
+        text(body, "v0.2.0 · Android 14+\n通过默认数字助理读取结构，不使用无障碍、ADB、Root 或录屏。", 15);
         serviceStatus = text(body, "", 15);
         button(body, "1. 设为默认数字助理", this::requestAssistant);
         button(body, "打开系统助理设置", () -> {
@@ -59,6 +74,27 @@ public final class MainActivity extends Activity {
                 catch (ActivityNotFoundException missing) { toast("请在系统设置搜索“默认助理”或“辅助应用”。"); }
             }
         });
+        text(body, "后台连续采集 · 局域网广播", 21);
+        text(body, "手机和电脑连接同一局域网，电脑打开 Assist LAN Monitor。开始后 App 退到后台，3 秒后自动采集；不显示本 App 的助理面板，系统仍可能显示识屏提示。", 15);
+        text(body, "每次采集完成后的等待间隔", 14);
+        Spinner interval = new Spinner(this);
+        interval.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item,
+            new String[]{"1 秒", "2 秒", "5 秒"}));
+        body.addView(interval);
+        text(body, "开始后会向局域网广播页面文字和控件信息（UDP 38583，未加密）。同网段设备可接收。", 14);
+        startStream = button(body, "开始连续采集并广播", () -> {
+            if (!VoiceInteractionService.isActiveService(this, new ComponentName(this, AssistService.class))) {
+                toast("请先启用本 App 的默认助理服务。"); return;
+            }
+            int delay = new int[]{1000, 2000, 5000}[interval.getSelectedItemPosition()];
+            if (AssistService.startContinuous(delay)) { toast("已启动，回到本 App 可停止。"); moveTaskToBack(true); }
+            else toast("服务尚未就绪，请重新选择默认助理。");
+        });
+        stopStream = button(body, "停止连续采集与广播", () -> {
+            AssistService.stopContinuous(); streamStatus.setText(AssistService.streamStatus());
+        });
+        streamStatus = text(body, "", 15);
+        text(body, "单次抓取与导出", 21);
         text(body, "在系统助理设置中允许“使用屏幕上的文字／屏幕内容”（如有此项）。然后点击下面按钮，在 5 秒内切换到目标 App 并停留在要测试的页面。", 15);
         capture = button(body, "2. 5 秒后获取页面结构", () -> {
             if (!VoiceInteractionService.isActiveService(this, new ComponentName(this, AssistService.class))) {
@@ -102,13 +138,17 @@ public final class MainActivity extends Activity {
         preview = text(body, "", 12);
         preview.setTypeface(Typeface.MONOSPACE);
         preview.setTextIsSelectable(true);
-        text(body, "仅保留最近一次会话，下一次抓取会覆盖。数据保存在本机，不联网；导出的文件可能含页面文字。测试后可在系统设置中恢复原默认助理。", 14);
+        text(body, "连续采集仅在内存保留最新结构，并广播到局域网；单次抓取保存在本机。锁屏时暂停读取，解锁后继续。服务结束后不会自动重启采集。", 14);
     }
 
     @Override protected void onResume() {
         super.onResume();
         reload();
+        ui.removeCallbacks(updateStream);
+        ui.post(updateStream);
     }
+
+    @Override protected void onPause() { ui.removeCallbacks(updateStream); super.onPause(); }
 
     private void requestAssistant() {
         RoleManager roles = getSystemService(RoleManager.class);

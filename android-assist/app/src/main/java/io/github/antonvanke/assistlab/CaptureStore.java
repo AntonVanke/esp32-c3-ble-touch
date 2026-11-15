@@ -13,16 +13,19 @@ import org.json.JSONObject;
 
 final class CaptureStore {
     static final ExecutorService IO = Executors.newSingleThreadExecutor();
+    private static volatile String latest;
 
     private static AtomicFile file(Context context) {
         return new AtomicFile(new File(context.getFilesDir(), "latest-assist.json"));
     }
 
     static void save(Context context, JSONObject data) throws Exception {
+        latest = data.toString(2);
+        if (data.optBoolean("continuous")) return;
         AtomicFile file = file(context);
         FileOutputStream out = null;
         try {
-            byte[] bytes = data.toString(2).getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = latest.getBytes(StandardCharsets.UTF_8);
             out = file.startWrite();
             out.write(bytes);
             file.finishWrite(out);
@@ -33,6 +36,7 @@ final class CaptureStore {
     }
 
     static String read(Context context) throws IOException {
+        if (latest != null) return latest;
         if (!file(context).getBaseFile().exists()) return "";
         return new String(file(context).readFully(), StandardCharsets.UTF_8);
     }
