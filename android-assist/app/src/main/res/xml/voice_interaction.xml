@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="io.github.antonvanke.assistlab.AssistSessionService"
+    android:recognitionService="io.github.antonvanke.assistlab.NoSpeechService"
+    android:settingsActivity="io.github.antonvanke.assistlab.MainActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false" />

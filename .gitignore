@@ -3,3 +3,8 @@
 __pycache__/
 docs/firmware/*.bin
 docs/firmware/build.json
+android-assist/.gradle/
+android-assist/**/build/
+android-assist/local.properties
+*.jks
+*.keystore
