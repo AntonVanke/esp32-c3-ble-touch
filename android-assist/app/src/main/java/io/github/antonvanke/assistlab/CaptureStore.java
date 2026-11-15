@@ -20,7 +20,7 @@ final class CaptureStore {
     }
 
     static void save(Context context, JSONObject data) throws Exception {
-        latest = data.toString(2);
+        latest = data.optBoolean("continuous") ? data.toString() : data.toString(2);
         if (data.optBoolean("continuous")) return;
         AtomicFile file = file(context);
         FileOutputStream out = null;

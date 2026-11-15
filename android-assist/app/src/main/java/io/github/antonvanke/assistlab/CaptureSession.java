@@ -55,7 +55,7 @@ public final class CaptureSession extends VoiceInteractionSession {
         message = "等待系统返回当前页面结构…";
         try {
             document = new JSONObject()
-                .put("schemaVersion", 1).put("appVersion", "0.2.0")
+                .put("schemaVersion", 1).put("appVersion", "0.3.0")
                 .put("capturedAt", Instant.now().toString())
                 .put("manufacturer", Build.MANUFACTURER).put("model", Build.MODEL)
                 .put("androidVersion", Build.VERSION.RELEASE).put("sdk", Build.VERSION.SDK_INT)
@@ -166,3 +166,4 @@ public final class CaptureSession extends VoiceInteractionSession {
         });
     }
 }
+

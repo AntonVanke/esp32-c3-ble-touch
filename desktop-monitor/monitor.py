@@ -5,10 +5,12 @@ import math
 import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from PIL import Image, ImageTk
 
 from protocol import PORT, Receiver
+from screen import ScreenReceiver
 
-VERSION = '0.2.0'
+VERSION = '0.3.0'
 STATUS = {
     'received_callbacks': '已收到结构回调', 'partial_callbacks': '部分回调',
     'no_callback_after_8_seconds': '系统未返回结构', 'screen_locked': '手机已锁屏 / 熄屏',
@@ -33,6 +35,13 @@ def bounds(value):
 class Monitor:
     def __init__(self, root, receiver):
         self.root, self.receiver = root, receiver
+        self.screen = ScreenReceiver()
+        self.video = None
+        self.video_key = None
+        self.photo = None
+        self.last_activities = None
+        self.structure_device = None
+        self.outlines = tk.BooleanVar(value=False)
         self.devices = collections.OrderedDict()
         self.selected = None
         self.displayed = None
@@ -42,7 +51,7 @@ class Monitor:
         self.selected_node = None
         self.loaded = set()
         root.title('Assist LAN Monitor ' + VERSION)
-        root.geometry('1280x820')
+        root.geometry('1440x900')
         root.minsize(960, 640)
         style = ttk.Style()
         if 'clam' in style.theme_names():
@@ -52,7 +61,8 @@ class Monitor:
         style.configure('Title.TLabel', font=('Microsoft YaHei UI', 19, 'bold'))
         bar = ttk.Frame(root, padding=(18, 12))
         bar.pack(fill='x')
-        ttk.Label(bar, text='Assist · 页面结构监看', style='Title.TLabel').pack(side='left')
+        ttk.Label(bar, text='Assist · 画面与结构监看', style='Title.TLabel').pack(side='left')
+        ttk.Checkbutton(bar, text='叠加控件边界', variable=self.outlines, command=self.draw).pack(side='left', padx=20)
         ttk.Button(bar, text='导出当前 JSON', command=self.export).pack(side='right', padx=4)
         self.pause_button = ttk.Button(bar, text='暂停刷新', command=self.toggle_pause)
         self.pause_button.pack(side='right', padx=4)
@@ -60,10 +70,10 @@ class Monitor:
         self.info.pack(fill='x')
         panes = ttk.Panedwindow(root, orient='horizontal')
         panes.pack(fill='both', expand=True, padx=14)
-        left = ttk.Frame(panes, width=270)
+        left = ttk.Frame(panes, width=420)
         panes.add(left, weight=1)
         ttk.Label(left, text='局域网设备', padding=5).pack(anchor='w')
-        self.device_tree = ttk.Treeview(left, columns=('ip', 'state'), show='tree headings', height=7)
+        self.device_tree = ttk.Treeview(left, columns=('ip', 'state'), show='tree headings', height=3)
         self.device_tree.heading('#0', text='设备')
         self.device_tree.heading('ip', text='地址')
         self.device_tree.heading('state', text='状态')
@@ -72,9 +82,10 @@ class Monitor:
         self.device_tree.column('state', width=90, minwidth=75)
         self.device_tree.pack(fill='x')
         self.device_tree.bind('<<TreeviewSelect>>', self.choose_device)
-        self.device_info = ttk.Label(left, text='手机开启“连续采集并广播”后自动出现。', wraplength=290, padding=8)
+        self.device_info = ttk.Label(left, text='手机开启“实时画面与结构共享”后自动出现。', wraplength=410, padding=8)
         self.device_info.pack(fill='x')
-        ttk.Label(left, text='位置轮廓（控件估计边界）', padding=5).pack(anchor='w')
+        self.video_info = ttk.Label(left, text='实时手机画面 · 等待屏幕共享', padding=5, wraplength=410)
+        self.video_info.pack(anchor='w')
         self.canvas = tk.Canvas(left, background='#e8eef5', highlightthickness=0, width=310)
         self.canvas.pack(fill='both', expand=True)
         self.canvas.bind('<Configure>', lambda event: self.draw())
@@ -109,7 +120,7 @@ class Monitor:
         ttk.Label(lower, text='节点详情 · 点击树节点或轮廓查看', padding=6).pack(anchor='w')
         self.detail = tk.Text(lower, height=10, wrap='word', font=('Consolas', 10), background='#f8fafc', relief='flat')
         self.detail.pack(fill='both', expand=True)
-        self.set_detail('手机与电脑连接同一局域网。\n\n首次运行如有 Windows 防火墙提示，请允许此程序访问专用网络。\n页面展示来自控件结构，不是屏幕截图。')
+        self.set_detail('手机与电脑连接同一局域网。\n\n首次运行如有 Windows 防火墙提示，请允许此程序访问专用网络。\n手机授权屏幕共享后，左侧显示真实画面；右侧显示默认助理返回的结构。\n画面和结构独立采集，时间可能有差异。')
         self.footer = ttk.Label(root, padding=(18, 8))
         self.footer.pack(fill='x')
         root.protocol('WM_DELETE_WINDOW', self.close)
@@ -153,16 +164,30 @@ class Monitor:
             self.device_tree.item(key, text=label(data.get('model') or key[:8], 25), values=(frame['ip'], f'{state} {age:.0f}s'))
         if changed and not self.paused:
             self.render()
+        source = self.devices.get(self.selected)
+        self.screen.select(source if source and now - source['received'] < 20 else None)
+        video, video_status, fps = self.screen.snapshot()
+        if not self.paused:
+            key = (video['device'], video['session'], video['sequence']) if video else None
+            if key != self.video_key:
+                self.video_key, self.video = key, video
+                self.draw()
+        video_age = now - self.video['received'] if self.video else None
+        screen_text = f'{fps if video_age is not None and video_age < 2 else 0:.1f} fps · 最新画面接收于 {video_age:.1f} 秒前' if video_age is not None else video_status
+        self.video_info.configure(text=screen_text + (' · 显示已暂停' if self.paused else '')
+                                  + (f'\n{video_status}' if video_age is not None else ''))
         if self.displayed:
             age = now - self.displayed['received']
-            self.info.configure(text=f'UDP {PORT} · 当前画面距接收 {age:.1f} 秒' + (' · 已暂停刷新' if self.paused else ' · 自动刷新'))
+            self.info.configure(text=f'UDP {PORT} / TCP 38584 · 结构接收于 {age:.1f} 秒前' + (' · 已暂停刷新' if self.paused else ' · 画面与结构独立刷新'))
         stats = self.receiver.reassembler
         self.footer.configure(text=f'完整帧 {self.receiver.frames}　不完整帧丢弃 {stats.dropped}　无效包 {stats.invalid}　|　{self.receiver.error or "等待当前帧分片齐全后刷新；丢包时等待下一帧"}')
-        self.root.after(150, self.poll)
+        self.root.after(50, self.poll)
 
     def choose_device(self, _event=None):
         selected = self.device_tree.selection()
         if selected:
+            if self.selected != selected[0]:
+                self.video = self.video_key = None
             self.selected = selected[0]
             self.render()
 
@@ -181,15 +206,20 @@ class Monitor:
         selected = selected[0] if selected else None
         self.displayed = frame
         data = frame['data']
+        activities = data.get('activities', [])
+        total = sum(a.get('nodeCount', 0) for a in activities if isinstance(a.get('nodeCount', 0), int))
+        self.device_info.configure(text=f'{label(data.get("manufacturer"))} {label(data.get("model"))} · {frame["ip"]}\n结构 #{data.get("sequence")} · 耗时 {data.get("captureDurationMs", "—")} ms · 目标间隔 {data.get("intervalMs", "—")} ms')
+        self.page_info.configure(text=f'{STATUS.get(data.get("status"), label(data.get("status")))} · 节点 {total}\n{label(data.get("capturedAt"))}  {label(data.get("message"))}')
+        if self.structure_device == frame['device'] and self.last_activities == activities:
+            if self.selected_node is None:
+                self.set_detail(json.dumps({key: value for key, value in data.items() if key != 'activities'}, ensure_ascii=False, indent=2))
+            return
+        self.structure_device, self.last_activities = frame['device'], activities
         self.tree.delete(*self.tree.get_children())
         self.nodes.clear()
         self.loaded.clear()
         self.draw_nodes.clear()
         self.selected_node = None
-        activities = data.get('activities', [])
-        total = sum(a.get('nodeCount', 0) for a in activities if isinstance(a.get('nodeCount', 0), int))
-        self.device_info.configure(text=f'{label(data.get("manufacturer"))} {label(data.get("model"))}\n{frame["ip"]} · #{data.get("sequence")}\n采集耗时：{data.get("captureDurationMs", "—")} ms\n压缩数据：{frame["compressedBytes"] / 1024:.1f} KiB\n设备 ID：{frame["device"][:8]}')
-        self.page_info.configure(text=f'{STATUS.get(data.get("status"), label(data.get("status")))} · 节点 {total}\n{label(data.get("capturedAt"))}  {label(data.get("message"))}')
         windows = []
         for ai, activity in enumerate(activities):
             parent = f'a{ai}'
@@ -265,9 +295,11 @@ class Monitor:
 
     def draw(self):
         self.canvas.delete('all')
-        box = getattr(self, 'window_bounds', None)
+        if hasattr(self, 'transform'):
+            del self.transform
+        box = [0, 0, self.video['width'], self.video['height']] if self.video else getattr(self, 'window_bounds', None)
         if not box:
-            self.canvas.create_text(20, 25, anchor='nw', text='尚无可绘制的窗口结构', fill='#475569')
+            self.canvas.create_text(20, 25, anchor='nw', text='等待手机画面或页面结构', fill='#475569')
             return
         width, height = box[2] - box[0], box[3] - box[1]
         cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
@@ -275,8 +307,14 @@ class Monitor:
         ox, oy = (cw - width * scale) / 2, (ch - height * scale) / 2
         self.transform = (scale, ox - box[0] * scale, oy - box[1] * scale)
         self.canvas.create_rectangle(ox, oy, ox + width * scale, oy + height * scale, fill='white', outline='#94a3b8')
+        if self.video:
+            resized = self.video['image'].resize((max(1, round(width * scale)), max(1, round(height * scale))), Image.Resampling.BILINEAR)
+            self.photo = ImageTk.PhotoImage(resized)
+            self.canvas.create_image(ox, oy, anchor='nw', image=self.photo)
         shown = 0
         for key, node in self.draw_nodes:
+            if self.video and not self.outlines.get() and key != self.selected_node:
+                continue
             rect = bounds(node.get('boundsOnScreenEstimate'))
             if not rect or node.get('visibility', 0) != 0:
                 continue
@@ -288,7 +326,7 @@ class Monitor:
             color = '#dc2626' if key == self.selected_node else ('#2563eb' if node.get('clickable') else '#cbd5e1')
             self.canvas.create_rectangle(*coords, outline=color, width=2 if key == self.selected_node else 1)
             text = label(node.get('text'), 22)
-            if text and shown < 100 and coords[2] - coords[0] > 30 and coords[3] - coords[1] > 12:
+            if not self.video and text and shown < 100 and coords[2] - coords[0] > 30 and coords[3] - coords[1] > 12:
                 self.canvas.create_text(coords[0] + 2, coords[1] + 2, text=text, anchor='nw', fill='#0f172a', font=('Microsoft YaHei UI', 8))
 
     def pick_canvas(self, event):
@@ -319,6 +357,7 @@ class Monitor:
                 messagebox.showerror('保存失败', str(exc))
 
     def close(self):
+        self.screen.close()
         self.receiver.close()
         self.root.destroy()
 

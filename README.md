@@ -4,10 +4,10 @@ ESP32-C3 蓝牙 HID 触摸屏实验：在电脑浏览器中烧录固件，通过
 
 - **在线烧录与控制台：<https://AntonVanke.github.io/esp32-c3-ble-touch/>**
 - **手机触摸测试靶页：<https://AntonVanke.github.io/esp32-c3-ble-touch/target.html>**
-- **[AssistStructure App v0.2.0 APK](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.2.0/assist-structure-lab-0.2.0.apk)**：后台连续采集页面结构并通过局域网广播，见 [手机说明](android-assist/README.md)。
-- **[Windows 桌面监看 EXE](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.2.0/Assist-LAN-Monitor-0.2.0-windows-x64.exe)**：实时结构树、文本、资源 ID、位置轮廓及 JSON 导出，见 [桌面说明](desktop-monitor/README.md)。
+- **[AssistStructure App v0.3.0 APK](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.3.0/assist-structure-lab-0.3.0.apk)**：实时画面与页面结构共享，新增悬浮控制窗、前台服务通知与快速采集，见 [手机说明](android-assist/README.md)。
+- **[Windows 桌面监看 EXE](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.3.0/Assist-LAN-Monitor-0.3.0-windows-x64.exe)**：同时显示手机画面、结构树和节点属性，见 [桌面说明](desktop-monitor/README.md)。
 - 目标：Android 14+，单台手机验证；不需要 ADB、USB 调试、Root 或无障碍服务。
-- HID 触摸无需安装 App；页面结构读取使用可选的测试 App，未包含投屏或多设备群控。
+- HID 触摸无需安装 App；画面与页面结构读取使用可选的测试 App，尚未集成多设备群控。
 - 设备类型是 HID Digitizers / Touch Screen，无键盘、鼠标或触摸板集合。
 - 实验性固件：编译、网页与产物检查不等同于实机验证，具体机型的 HID 分类、映射和多点兼容性需测试。
 

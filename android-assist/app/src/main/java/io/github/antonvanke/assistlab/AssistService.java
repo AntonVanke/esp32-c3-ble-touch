@@ -2,11 +2,13 @@ package io.github.antonvanke.assistlab;
 
 import android.app.KeyguardManager;
 import android.content.SharedPreferences;
+import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.service.voice.VoiceInteractionService;
 import android.service.voice.VoiceInteractionSession;
 import android.widget.Toast;
@@ -24,10 +26,13 @@ public final class AssistService extends VoiceInteractionService {
     private volatile boolean running;
     private volatile String report = "连续采集未启动";
     private volatile long sent, inFlight;
-    private long sequence;
+    private long sequence, requestedAt;
     private int interval = 1000;
     private final Runnable next = this::requestCapture;
-    private final Runnable watchdog = () -> stop("抓取超过 12 秒，已暂停；可重新开始");
+    private final Runnable watchdog = () -> {
+        stop("抓取超过 12 秒，已暂停；可重新开始");
+        MonitorService.finish("结构采集超时，已停止共享；可重新开始");
+    };
     private final Runnable single = () -> {
         try { showSession(new Bundle(), VoiceInteractionSession.SHOW_WITH_ASSIST); }
         catch (RuntimeException e) { Toast.makeText(this, "启动失败：" + e.getMessage(), Toast.LENGTH_LONG).show(); }
@@ -35,11 +40,15 @@ public final class AssistService extends VoiceInteractionService {
 
     @Override public void onReady() {
         super.onReady();
-        SharedPreferences prefs = getSharedPreferences("lan", MODE_PRIVATE);
+        device = deviceId(this);
+        active = this;
+    }
+
+    static synchronized UUID deviceId(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences("lan", MODE_PRIVATE);
         String id = prefs.getString("deviceId", null);
         if (id == null) { id = UUID.randomUUID().toString(); prefs.edit().putString("deviceId", id).apply(); }
-        device = UUID.fromString(id);
-        active = this;
+        return UUID.fromString(id);
     }
 
     static boolean schedule() {
@@ -59,7 +68,7 @@ public final class AssistService extends VoiceInteractionService {
         service.run = UUID.randomUUID();
         service.broadcaster = new LanBroadcaster(service.device, service.run);
         service.sequence = service.sent = 0;
-        service.interval = Math.max(500, intervalMs);
+        service.interval = Math.max(100, intervalMs);
         service.running = true;
         service.report = "已启动，3 秒后开始广播";
         service.handler.postDelayed(service.next, 3000);
@@ -79,6 +88,7 @@ public final class AssistService extends VoiceInteractionService {
     private void requestCapture() {
         if (!running || inFlight != 0) return;
         long id = ++sequence;
+        requestedAt = SystemClock.elapsedRealtime();
         inFlight = id;
         handler.postDelayed(watchdog, 12000);
         if (!getSystemService(PowerManager.class).isInteractive()
@@ -108,6 +118,7 @@ public final class AssistService extends VoiceInteractionService {
         try {
             data.put("deviceId", service.device.toString()).put("runId", runId).put("sequence", id)
                 .put("intervalMs", service.interval).put("continuous", true);
+            MonitorService.metadata(data);
             CaptureStore.save(service, data);
             sender.send(id, data.toString().getBytes(StandardCharsets.UTF_8));
             service.sent++;
@@ -119,7 +130,8 @@ public final class AssistService extends VoiceInteractionService {
             service.handler.removeCallbacks(service.watchdog);
             service.inFlight = 0;
             service.report = message;
-            service.handler.postDelayed(service.next, service.interval);
+            long wait = service.interval - (SystemClock.elapsedRealtime() - service.requestedAt);
+            service.handler.postDelayed(service.next, Math.max(20, wait));
         });
     }
 
@@ -132,7 +144,7 @@ public final class AssistService extends VoiceInteractionService {
     }
 
     private JSONObject baseStatus(String status) throws Exception {
-        return new JSONObject().put("schemaVersion", 1).put("appVersion", "0.2.0")
+        return new JSONObject().put("schemaVersion", 1).put("appVersion", "0.3.0")
             .put("model", Build.MODEL).put("manufacturer", Build.MANUFACTURER)
             .put("capturedAt", Instant.now().toString()).put("status", status).put("activities", new JSONArray());
     }
@@ -166,6 +178,6 @@ public final class AssistService extends VoiceInteractionService {
         if (running && inFlight != 0) publishStatus(inFlight, "session_error", "系统未能启动助理会话");
         else Toast.makeText(this, "系统未能启动助理会话，请检查默认助理设置。", Toast.LENGTH_LONG).show();
     }
-    @Override public void onShutdown() { stop("默认助理已切换，采集停止"); if (active == this) active = null; super.onShutdown(); }
-    @Override public void onDestroy() { stop("服务已停止"); if (active == this) active = null; super.onDestroy(); }
+    @Override public void onShutdown() { stop("默认助理已切换，采集停止"); MonitorService.finish("默认助理已切换，停止共享"); if (active == this) active = null; super.onShutdown(); }
+    @Override public void onDestroy() { stop("服务已停止"); MonitorService.finish("助理服务已停止，停止共享"); if (active == this) active = null; super.onDestroy(); }
 }
