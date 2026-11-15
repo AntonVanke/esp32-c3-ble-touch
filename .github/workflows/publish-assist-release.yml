@@ -1,0 +1,22 @@
+name: Publish AssistStructure release
+on:
+  push:
+    tags: ['assist-v*']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify packaged downloads
+        working-directory: release-assets/${{ github.ref_name }}
+        run: sha256sum -c SHA256SUMS.txt
+      - name: Publish APK and desktop executable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          asset_dir="release-assets/$GITHUB_REF_NAME"
+          gh release create "$GITHUB_REF_NAME" "$asset_dir"/*.apk "$asset_dir"/*.exe "$asset_dir/SHA256SUMS.txt" \
+            --repo "$GITHUB_REPOSITORY" --title "AssistStructure Lab $GITHUB_REF_NAME - LAN capture and Windows monitor" \
+            --notes-file "$asset_dir/NOTES.md" --prerelease

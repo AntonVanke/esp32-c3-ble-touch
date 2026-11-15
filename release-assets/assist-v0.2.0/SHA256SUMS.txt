@@ -1,0 +1,2 @@
+6939daaa5b3f1793ec948e18b841b7a39909549f1d66883391cfcac54bcbb997  Assist-LAN-Monitor-0.2.0-windows-x64.exe
+7af6e7a4d52b029f043f6c5dba062c00f6f4ee1f54d320ff5cec1b81a0d0e351  assist-structure-lab-0.2.0.apk
