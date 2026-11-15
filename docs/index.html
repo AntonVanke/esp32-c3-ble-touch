@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101b29">
+  <title>C3 Touch Lab · 蓝牙触摸测试</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10.1.1/dist/web/install-button.js?module"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="./"><span class="brand-mark">T</span> C3 Touch Lab</a><div class="toplinks"><span class="version">DEMO 0.1.0</span><a href="https://github.com/AntonVanke/esp32-c3-ble-touch" target="_blank" rel="noreferrer">GitHub ↗</a></div></header>
+  <main>
+    <div class="hero"><div><p class="eyebrow">ESP32-C3 / BLUETOOTH HID</p><h1>让触摸，走蓝牙。</h1><p class="intro">用一块 C3 测试 Android 的外接触摸输入。直接看手机，无需 USB 调试或无障碍权限。</p></div><div class="hero-tag"><span class="dot"></span> 单机验证 · 两点触摸</div></div>
+    <div id="browser-warning" class="notice" hidden>当前浏览器不支持 Web Serial。请在电脑端 Chrome 或 Edge 中打开此 HTTPS 页面。</div>
+    <div class="setup-grid">
+      <section class="card"><div class="card-heading"><span class="step">01</span><h2>烧录 C3</h2></div><p class="muted">用数据线将开发板接到电脑，选择板子的 USB 类型。</p>
+        <label for="variant">开发板接口</label><select id="variant"><option value="native">原生 USB · C3 SuperMini / USB Serial-JTAG</option><option value="uart">USB 转串口 · CH340 / CP210x / DevKitM</option></select>
+        <esp-web-install-button id="installer" manifest="firmware/manifest-native.json"><button slot="activate" class="primary" id="flash-button">连接并烧录</button><span slot="unsupported">请使用支持 Web Serial 的电脑浏览器。</span><span slot="not-allowed">烧录需要 HTTPS 或 localhost。</span></esp-web-install-button>
+        <p class="hint">固件适用于 4 MB Flash 的 ESP32-C3。安装会替换板内固件；烧录时可选择是否擦除数据。</p>
+        <details><summary>无法连接或烧录后没有串口？</summary><p>按住 BOOT，轻按 RESET 后松开 BOOT，再尝试烧录。原生 USB 板烧录后按一下 RESET；关闭烧录弹窗，再连接下方控制台。若端口仍被占用，拔插一次 USB。CH340 / CP210x 板请选择“USB 转串口”版本。</p></details>
+      </section>
+      <section class="card"><div class="card-heading"><span class="step">02</span><h2>连接控制台与手机</h2></div><p class="muted">先连接板子的串口，再在手机蓝牙设置中配对 C3。</p>
+        <div class="button-row"><button id="connect" class="primary">连接控制台</button><button id="disconnect" disabled>断开</button></div>
+        <dl class="status-list"><div><dt>电脑串口</dt><dd id="serial-state">未连接</dd></div><div><dt>手机配对名称</dt><dd id="device-name">连接控制台后显示</dd></div><div><dt>蓝牙触摸通道</dt><dd id="ble-state">等待设备</dd></div><div><dt>已发送触摸报告</dt><dd id="report-count">0</dd></div></dl>
+        <p class="hint">在手机系统设置里配对，电脑不需要蓝牙。通道显示“已就绪”后才能发送触摸。</p>
+      </section>
+      <section class="card target-card"><div class="card-heading"><span class="step">03</span><h2>在手机上观察</h2></div><p class="muted">用手机浏览器打开测试靶页，查看落点、轨迹、触点数和输入类型。</p><a class="button" href="target.html" target="_blank">打开手机测试靶页 ↗</a><div class="target-url" id="target-url"></div><button id="copy-target" class="quiet">复制靶页链接</button><p class="hint">出现 <strong>touch</strong> 表示浏览器收到触摸事件。蓝牙连接成功本身不代表手机已正确识别触摸屏。</p></section>
+    </div>
+    <section class="card control-card"><div class="section-title"><div><p class="eyebrow">LIVE CONTROL</p><h2>触摸测试台</h2></div><button id="release" class="danger" disabled>释放全部触点</button></div>
+      <div class="control-grid"><div><div class="pad-label"><span>按住拖动，映射到手机屏幕</span><span id="coordinates">X 500 · Y 500</span></div><div id="touchpad" aria-label="触摸坐标控制区" role="application" tabindex="0"><div class="pad-cross"></div><div class="pad-center"><span class="pad-icon">＋</span><strong>触摸控制区</strong><span id="pad-note">连接手机后启用</span></div><span class="axis origin">0, 0</span><span class="axis extent">1000, 1000</span><div id="touch-dot" hidden></div></div><p class="hint">坐标范围 0–1000。按住会保持接触，松开会抬起；切走页面会释放触点。</p></div>
+      <div class="actions"><label>快捷手势</label><div class="gesture-buttons"><button data-command="tap 500 500" disabled>中心点击</button><button data-command="swipe 500 800 500 200 650" disabled>向上滑动 ↑</button><button data-command="swipe 500 200 500 800 650" disabled>向下滑动 ↓</button><button data-command="swipe 800 500 200 500 650" disabled>向左滑动 ←</button><button data-command="pinch out" disabled>双指展开</button><button data-command="pinch in" disabled>双指捏合</button></div>
+      <label for="command">串口命令</label><form id="command-form"><input id="command" placeholder="tap 500 500" autocomplete="off" maxlength="120"><button id="send" disabled>发送</button></form><p class="hint">可用：status、tap、swipe、pinch、down、move、up、release。<a href="https://github.com/AntonVanke/esp32-c3-ble-touch#串口协议">查看参数</a></p>
+      <div class="maintenance"><button id="status" class="quiet" disabled>刷新状态</button><button id="unpair" class="quiet" disabled>清除板端配对</button></div></div></div>
+    </section>
+    <section class="card console-card"><div class="section-title"><h2>设备日志</h2><button id="clear-log" class="quiet">清空日志</button></div><pre id="log" aria-live="polite">等待连接控制台…</pre></section>
+    <footer>实验性 HID Touch Screen 固件 · Android 14+ 兼容性需在目标机型实测 · 页面不会自动发送触摸指令</footer>
+  </main>
+</body></html>

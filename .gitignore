@@ -1,0 +1,5 @@
+.pio/
+.vscode/
+__pycache__/
+docs/firmware/*.bin
+docs/firmware/build.json
