@@ -4,7 +4,7 @@ ESP32-C3 蓝牙 HID 触摸屏实验：在电脑浏览器中烧录固件，通过
 
 - **在线烧录与控制台：<https://AntonVanke.github.io/esp32-c3-ble-touch/>**
 - **手机触摸测试靶页：<https://AntonVanke.github.io/esp32-c3-ble-touch/target.html>**
-- **[AssistStructure 测试 App APK](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.1.0/assist-structure-lab-0.1.0.apk)**：通过默认数字助理读取页面结构，见 [安装与测试说明](android-assist/README.md)。
+- **[AssistStructure 测试 App APK](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.1.1/assist-structure-lab-0.1.1.apk)**：通过默认数字助理读取页面结构，见 [安装与测试说明](android-assist/README.md)。
 - 目标：Android 14+，单台手机验证；不需要 ADB、USB 调试、Root 或无障碍服务。
 - HID 触摸无需安装 App；页面结构读取使用可选的测试 App，未包含投屏或多设备群控。
 - 设备类型是 HID Digitizers / Touch Screen，无键盘、鼠标或触摸板集合。

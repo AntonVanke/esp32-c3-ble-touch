@@ -33,7 +33,7 @@ public final class CaptureSession extends VoiceInteractionSession {
         try {
             document = new JSONObject()
                 .put("schemaVersion", 1)
-                .put("appVersion", "0.1.0")
+                .put("appVersion", "0.1.1")
                 .put("capturedAt", Instant.now().toString())
                 .put("manufacturer", Build.MANUFACTURER)
                 .put("model", Build.MODEL)

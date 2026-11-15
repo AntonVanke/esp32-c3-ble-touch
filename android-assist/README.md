@@ -2,7 +2,9 @@
 
 用于在小米 14 / Android 14+ 验证默认数字助理能否获得前台应用的界面结构。独立于 C3 固件；测试读取结构时不需要连接开发板。
 
-**[下载 v0.1.0 APK](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.1.0/assist-structure-lab-0.1.0.apk)** · [发布页](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/tag/assist-v0.1.0)
+**[下载 v0.1.1 APK](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/download/assist-v0.1.1/assist-structure-lab-0.1.1.apk)** · [发布页](https://github.com/AntonVanke/esp32-c3-ble-touch/releases/tag/assist-v0.1.1)
+
+v0.1.1 修正助理元数据根标签为 Android 要求的 `voice-interaction-service`；v0.1.0 的错误标签会导致系统拒绝启用助理服务。发布版可直接覆盖安装 v0.1.0，再重新选择默认助理。
 
 ## 手机上测试
 

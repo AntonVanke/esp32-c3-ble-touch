@@ -49,7 +49,7 @@ public final class MainActivity extends Activity {
         });
         setContentView(scroll);
         text(body, "Assist 结构测试", 26);
-        text(body, "v0.1.0 · Android 14+\n只读取系统助理提供的结构；不使用无障碍、ADB、Root、录屏或麦克风。", 15);
+        text(body, "v0.1.1 · Android 14+\n只读取系统助理提供的结构；不使用无障碍、ADB、Root、录屏或麦克风。", 15);
         serviceStatus = text(body, "", 15);
         button(body, "1. 设为默认数字助理", this::requestAssistant);
         button(body, "打开系统助理设置", () -> {
